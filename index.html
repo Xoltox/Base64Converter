@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File to Base64 Converter</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+            margin: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: var(--surface);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--text);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.2s;
+            background: var(--bg);
+        }
+
+        .upload-area:hover, .upload-area:focus-within {
+            border-color: var(--primary);
+        }
+
+        input[type="file"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            cursor: pointer;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:disabled {
+            background-color: var(--text-light);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.875rem;
+            resize: vertical;
+            box-sizing: border-box;
+            background-color: var(--bg);
+            color: var(--text);
+        }
+
+        textarea:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: -1px;
+        }
+
+        #fileInfo {
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>File to Base64 Converter</h1>
+        
+        <div class="upload-area">
+            <input type="file" id="fileInput" aria-label="Upload file">
+        </div>
+
+        <div class="controls">
+            <label class="checkbox-label">
+                <input type="checkbox" id="includePrefix" checked>
+                Include Data URI Prefix (e.g., data:image/png;base64,...)
+            </label>
+            <div id="fileInfo">No file selected</div>
+        </div>
+
+        <textarea id="output" placeholder="Your Base64 string will appear here..." readonly></textarea>
+
+        <div class="controls" style="justify-content: flex-end;">
+            <button id="copyBtn" disabled>
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                Copy to Clipboard
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const output = document.getElementById('output');
+        const copyBtn = document.getElementById('copyBtn');
+        const includePrefixToggle = document.getElementById('includePrefix');
+        const fileInfo = document.getElementById('fileInfo');
+
+        let fullDataUri = '';
+
+        // Handle file selection
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                resetUI();
+                return;
+            }
+
+            // Update file info
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            fileInfo.textContent = `${file.name} (${fileSize} MB)`;
+            
+            output.value = 'Converting...';
+            copyBtn.disabled = true;
+
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                fullDataUri = e.target.result;
+                updateOutput();
+                copyBtn.disabled = false;
+            };
+
+            reader.onerror = () => {
+                output.value = 'Error reading file.';
+                copyBtn.disabled = true;
+            };
+
+            // Read the file as a Data URL (Base64)
+            reader.readAsDataURL(file);
+        });
+
+        // Handle prefix toggle
+        includePrefixToggle.addEventListener('change', () => {
+            if (fullDataUri) {
+                updateOutput();
+            }
+        });
+
+        // Update textarea based on toggle state
+        function updateOutput() {
+            if (includePrefixToggle.checked) {
+                output.value = fullDataUri;
+            } else {
+                // Strip the "data:*/*;base64," prefix
+                const base64String = fullDataUri.split(',')[1] || '';
+                output.value = base64String;
+            }
+        }
+
+        // Handle copy button
+        copyBtn.addEventListener('click', async () => {
+            if (!output.value) return;
+            
+            try {
+                await navigator.clipboard.writeText(output.value);
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '&#10003; Copied!';
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                }, 2000);
+            } catch (err) {
+                alert('Failed to copy text. You can manually select and copy the text inside the box.');
+            }
+        });
+
+        function resetUI() {
+            fullDataUri = '';
+            output.value = '';
+            fileInfo.textContent = 'No file selected';
+            copyBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>
